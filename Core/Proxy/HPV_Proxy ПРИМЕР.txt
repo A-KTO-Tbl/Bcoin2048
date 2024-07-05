@@ -1,0 +1,5 @@
+айпи:порт:логин:пароль
+237.96.165.89:7492:login:password
+202.60.124.137:7300:login:password
+24.62.187.78:8382:login:password
+201.60.154.211:6286:login:password
