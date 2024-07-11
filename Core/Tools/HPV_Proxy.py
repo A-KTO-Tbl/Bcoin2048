@@ -1,5 +1,7 @@
 from requests import get
 from threading import Thread
+from colorama import Fore
+from datetime import datetime
 
 from Core.Tools.HPV_Getting_File_Paths import HPV_Get_Proxy
 
@@ -29,15 +31,22 @@ def HPV_Checker(proxy):
 def HPV_Proxy_Checker():
     '''Проверка HTTPS, SOCKS5 проксей на валидность'''
 
+    PROXY_LIST = HPV_Get_Proxy()
     VALID_PROXY = []
     THREADS = []
+
+    if PROXY_LIST:
+        DIVIDER = Fore.BLACK + ' | '
+        Time = Fore.BLUE + f'{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
+        Text = Fore.GREEN + 'Проверка прокси на работоспособность...'
+        print(Time + DIVIDER + '🌐' + DIVIDER + Text)
 
     def _HPV_Checker(proxy):
         HPV = HPV_Checker(proxy)
         if HPV:
             VALID_PROXY.append(HPV)
 
-    for proxy in HPV_Get_Proxy():
+    for proxy in PROXY_LIST:
         THREAD = Thread(target=_HPV_Checker, args=(proxy,))
         THREAD.start()
         THREADS.append(THREAD)
