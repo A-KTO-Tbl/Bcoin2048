@@ -26,9 +26,11 @@ class HPV_Bcoin2048:
     ---------------------
     [1] - `Получение кол-ва доступных игр и запуск их прохождения`
     
-    [2] - `Ожидание от 6 до 7 часов`
+    [2] - `Выполнение ежедневного задания`
     
-    [3] - `Повторение действий через 6-7 часов`
+    [3] - `Ожидание от 6 до 7 часов`
+    
+    [4] - `Повторение действий через 6-7 часов`
     '''
 
 
@@ -38,7 +40,7 @@ class HPV_Bcoin2048:
         self.Token = self.URL_Clean(URL)   # Уникальная ссылка для авторизации в mini app
         self.Proxy = Proxy                 # Прокси (при наличии)
         self.UA = HPV_User_Agent()         # Генерация уникального User Agent
-        self.Domain = 'https://pipipupu.ru/api/v2' # Домен игры
+        self.Domain = 'https://bcoin2048.com/api/v2' # Домен игры
 
 
 
@@ -89,15 +91,18 @@ class HPV_Bcoin2048:
         '''Получение информации о балансе и достынх играх'''
 
         Headers = {'Accept-Language': 'ru,en;q=0.9,uz;q=0.8', 'Connection': 'keep-alive', 'Origin': 'https://pipipupu.ru', 'Referer': 'https://pipipupu.ru/appezdish', 'Sec-Fetch-Dest': 'empty', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Site': 'same-origin', 'User-Agent': self.UA, 'accept': '*/*', 'authorization': '', 'content-type': 'application/json', 'telegram-init-data': self.Token}
-        Json = {'operationName': 'GetViewer', 'variables': {}, 'query': 'query GetViewer {\n  viewer {\n    id\n    energyUnits\n    nextEnergyUnitsAt\n    bicoinBalance\n    name\n    inviteesCount\n    inviteesInviteesCount\n    inviteesReward\n    inviteesInviteesReward\n    allTimeEarnedBicoins\n    photoURL\n    bestGameEver {\n      bicoinReward\n      score\n      __typename\n    }\n    bestGameDaily {\n      bicoinReward\n      score\n      __typename\n    }\n    features\n    inviterId\n    hadClaimedFirst2048Reward\n    isBot\n    deleteTileBoostersCount\n    moveBackBoostersCount\n    moveWithoutTileBoostersCount\n    adsWatchedToday\n    __typename\n  }\n}'}
+        Json = {'operationName': 'GetViewer', 'variables': {}, 'query': 'query GetViewer {\n  viewer {\n    id\n    energyUnits\n    nextEnergyUnitsAt\n    bicoinBalance\n    name\n    inviteesCount\n    inviteesInviteesCount\n    inviteesReward\n    inviteesInviteesReward\n    allTimeEarnedBicoins\n    photoURL\n    bestGameEver {\n      bicoinReward\n      score\n      __typename\n    }\n    bestGameDaily {\n      bicoinReward\n      score\n      __typename\n    }\n    features\n    inviterId\n    hadClaimedFirst2048Reward\n    isBot\n    deleteTileBoostersCount\n    moveBackBoostersCount\n    moveWithoutTileBoostersCount\n    adsWatchedToday\n    completedTasks\n    completedCheckpoints\n    dailyTasksStreak\n    dailyTasksLastCompletedAt\n    __typename\n  }\n}'}
 
         try:
             HPV = post(self.Domain, headers=Headers, json=Json, proxies=self.Proxy).json()['data']['viewer']
 
             Games = HPV['energyUnits'] # Кол-во доступных игр
             Balance = HPV['bicoinBalance'] * 1000 # Текущий баланс
+            Daily_Tasks = HPV['dailyTasksStreak'] # Кол-во выполненных заданий подряд
+            if Daily_Tasks < 8:
+                Daily_Tasks += 1
 
-            return {'Status': True, 'Games': Games, 'Balance': f'{Balance:,.0f}'}
+            return {'Status': True, 'Games': Games, 'Balance': f'{Balance:,.0f}', 'Daily_Tasks': Daily_Tasks}
         except:
             return {'Status': False}
 
@@ -137,6 +142,19 @@ class HPV_Bcoin2048:
 
 
 
+    def Daily_Task(self, ID: int) -> bool:
+        '''Выполнение ежедневного задания'''
+
+        Headers = {'Accept-Language': 'ru,en;q=0.9,uz;q=0.8', 'Connection': 'keep-alive', 'Origin': 'https://bcoin2048.com', 'Referer': 'https://bcoin2048.com/daily-tasks', 'Sec-Fetch-Dest': 'empty', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Site': 'same-origin', 'User-Agent': self.UA, 'accept': '*/*', 'authorization': '', 'content-type': 'application/json', 'telegram-init-data': self.Token}
+        Json = {'operationName': 'CheckIfDailyTaskCompleted', 'variables': {'taskID': ID}, 'query': 'mutation CheckIfDailyTaskCompleted($taskID: Int!) {\n  CheckIfDailyTaskCompleted(taskID: $taskID)\n}'}
+
+        try:
+            return True if post(self.Domain, headers=Headers, json=Json, proxies=self.Proxy).json()['data']['CheckIfDailyTaskCompleted'] else False
+        except:
+            return False
+
+
+
     def Run(self) -> None:
         '''Активация бота'''
 
@@ -148,6 +166,7 @@ class HPV_Bcoin2048:
                     self.Logging('Success', self.Name, '🟢', 'Инициализация успешна!')
                     self.Logging('Success', self.Name, '💰', f'Текущий баланс: {INFO["Balance"]}')
 
+
                     # Получение кол-ва доступных игр и запуск их прохождения
                     Get_plays = INFO['Games']
                     if Get_plays > 0:
@@ -158,6 +177,12 @@ class HPV_Bcoin2048:
 
                         self.Logging('Success', self.Name, '💰', f'Баланс после игр: {self.Get_Info()["Balance"]}')
 
+
+                    # Выполнение ежедневного задания
+                    if self.Daily_Task(INFO['Daily_Tasks']):
+                        self.Logging('Success', self.Name, '🟢', 'Ежедневное задание выполнено!')
+
+
                     Waiting = randint(22_000, 25_000) # Значение времени в секундах для ожидания
                     Waiting_STR = (datetime.now() + timedelta(seconds=Waiting)).strftime('%Y-%m-%d %H:%M:%S') # Значение времени в читаемом виде
 
@@ -167,7 +192,7 @@ class HPV_Bcoin2048:
 
                 else: # Если аутентификация не успешна
                     self.Logging('Error', self.Name, '🔴', 'Ошибка инициализации!')
-                    continue
+                    sleep(randint(33, 66)) # Ожидание от 33 до 66 секунд
             except:
                 pass
 
@@ -194,11 +219,14 @@ if __name__ == '__main__':
         print(Time + DIVIDER + '🌐' + DIVIDER + Text)
         sleep(5)
 
-    for Account, URL in HPV_Get_Accounts().items():
-        if Proxy:
-            Proxy = cycle(Proxy)
-            Thread(target=Start_Thread, args=(Account, URL, next(Proxy),)).start()
-        else:
-            Thread(target=Start_Thread, args=(Account, URL,)).start()
+    try:
+        for Account, URL in HPV_Get_Accounts().items():
+            if Proxy:
+                Proxy = cycle(Proxy)
+                Thread(target=Start_Thread, args=(Account, URL, next(Proxy),)).start()
+            else:
+                Thread(target=Start_Thread, args=(Account, URL,)).start()
+    except:
+        print(Fore.RED + '\n\tОшибка чтения `HPV_Account.json`, ссылки указаны некорректно!')
 
 
